@@ -4,36 +4,41 @@ library(lubridate)
 library(tidyr)
 library(ggplot2)
 
-stepsPerDay <- read.csv('activity.csv', stringsAsFactors=F) %>%
+activityDf <- read.csv('activity.csv', colClasses=c('integer', 'character', 'numeric'), stringsAsFactors=F) %>%
 {
     .$date <- ymd(.$date)
     .
-} %>%
-group_by(dayOfYear = yday(.$date)) %>%
-summarise(totalSteps = sum(steps))
+}
 
-meanStepsPerDay = mean(stepsPerDay$totalSteps, na.rm=T )
-medianStepsPerDay = median(stepsPerDay$totalSteps, na.rm=T)
+stepsByDayDf <- activityDf %>%
+    group_by(dayOfYear = yday(.$date)) %>%
+    summarise(totalSteps = sum(steps)) %>% {
+        meanStepsPerDay <<- round(mean(.$totalSteps, na.rm=T ),1)
+        medianStepsPerDay <<- median(.$totalSteps, na.rm=T)
+        . #Return the dataset
+    }
 
-hist(stepsPerDay$totalSteps, breaks = "Sturges",
+
+hist(stepsByDayDf$totalSteps, breaks = "Sturges",
      ylab='Frequency in Days', xlab='Step ranges',
      main = 'Occurrences of days for given step range',
      col='peachpuff', border='red')
 
 
-activity <- read.csv('activity.csv', stringsAsFactors=F) %>%
-{
-    .$date <- ymd(.$date)
-    .
-}
-dailyIntervals <- activity %>% spread(interval, steps )
-intervalSummary <- data.frame(meanStepsOverAllDays =
-    sapply(dailyIntervals[,2:ncol(dailyIntervals)],
-           function(x) mean(x, na.rm=T)),
-    sequentialperoid = seq(0, 1435, by=5),
-    clockperiod = names(dailyIntervals[,2:ncol(dailyIntervals)]))
 
-maxIntervalSteps <- which.max(intervalSummary$meanStepsOverAllDays)
+dailyIntervals <- activityDf %>% spread(interval, steps )
+intervalSummary <- data.frame(meanStepsOverAllDays =
+                                  sapply(dailyIntervals[,2:ncol(dailyIntervals)],
+                                         function(x) mean(x, na.rm=T)),
+                              sequentialperoid = seq(0, 1435, by=5),
+                              clockperiod = names(dailyIntervals[,2:ncol(dailyIntervals)]))
+
+maxIntervalStepsIndex <- which.max(intervalSummary$meanStepsOverAllDays)
+
+clockIntervalWithMaximumSteps <-
+    intervalSummary$clockperiod[maxIntervalStepsIndex]
+sequential5MinIntervalWtihMaximumSteps <-
+    intervalSummary$sequentialperoid[maxIntervalStepsIndex]
 
 p <- ggplot(intervalSummary, aes(x = sequentialperoid, y = meanStepsOverAllDays )) +
     geom_line(col='blue') +
@@ -43,3 +48,6 @@ p <- ggplot(intervalSummary, aes(x = sequentialperoid, y = meanStepsOverAllDays 
         labels=c('0','4:10', '8:20', '12:30', '16:40', '20:50', '25:00')) +
     labs(x='24Hr Time HH:MM', y='Mean steps per interval over all days.')
 p
+
+intervalSummary <- intervalSummary %>%
+    mutate(weekday = )

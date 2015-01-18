@@ -77,6 +77,9 @@ hist(stepsByDayDf$totalSteps, breaks = "Sturges",
 
 
 ## What is the average daily activity pattern?
+To answer this question the code below has been written to transform the narrow / tidy data set to a wide format, where each row represents all interval observations of a given day.  This is accomplished by use of the spreading function from the tidyr package. Once the data are transformed it is then trivial to compute the mean of the daily interval columns. 
+
+It is important note that the raw data points for the interval variable is actually a stepwise function of time.  By stepwise I mean its value repeats according to the modulus of a sequential 5 minute timer.  ie the 2 least significant digits roll over to zero on 60 minute boundaries. Hence the interval variable is modulo 60 and therefore should not be used as the input x scale of a plotting, lest the plot be distorted by the nature of the step. For this reason we are going to create a new interval variable that is a linear sequence of 5 minute intervals, so that we may plot correctly without skew, but still label the x axis according to clock time interval that is given in the raw data.
 
 
 ```r
@@ -87,13 +90,22 @@ intervalSummary <- data.frame(meanStepsOverAllDays =
     sequentialperoid = seq(0, 1435, by=5),
     clockperiod = names(dailyIntervals[,2:ncol(dailyIntervals)]))
 
-#maxIntervalSteps <- which.max(intervalSummary$meanStepsOverAllDays)
+maxIntervalStepsIndex <- which.max(intervalSummary$meanStepsOverAllDays)
+
+clockIntervalWithMaximumSteps <-
+    intervalSummary$clockperiod[maxIntervalStepsIndex]
+sequential5MinIntervalWtihMaximumSteps <- 
+    intervalSummary$sequentialperoid[maxIntervalStepsIndex]
 ```
+
+The code above also locates the row index 104 where we have the maximum number of steps over the 24 hours of the averaged daily steps. With this index we can then find both the clock time (raw data interval) and the sequential 5 minute interval of the 24 hour period.
+
+The clock interval with Maximum Steps is 835
+
+The corresponding Sequential 5-Minuite interval with Maximum Steps is 515
 
 
 ```r
-maxIntervalSteps <- which.max(intervalSummary$meanStepsOverAllDays)
-
 p <- ggplot(intervalSummary, aes(x = sequentialperoid, y = meanStepsOverAllDays )) +
     geom_line(col='blue') +
     ggtitle("Mean Steps / Day") +
@@ -110,5 +122,47 @@ p
 ## Imputing missing values
 
 
-
 ## Are there differences in activity patterns between weekdays and weekends?
+This code transform the dailyIntervals data frame from the computations above
+by adding a new factor variable for the dayType of 'weekday' or 'weekend'.
+The subsequent group_by and summarise_each functions creates the mean steps
+per day for each day type of a given date.
+
+Finally, the code prepares the data to be plotted, by creating a more tidy ('narrow')
+data set using the gather function. The resulting structure allows for simple plotting
+by variable name. Again, as in the above plot, I'm going to add a new variable that
+represents the sequential 5 minute interval to use as the x axis in the plot,
+so as to prevent a skewed plot if we had chosen to use the modulo 60 interval variable 
+of the underlying raw data set.
+
+
+
+```r
+dayTypeSummary <- dailyIntervals %>%
+    #Start by adding a new column for the day type to the dailyIntervals dataFrame
+    mutate(dayType = factor(
+        ifelse(wday(.$date) == 1 | wday(.$date) == 7,"weekend","weekday"))
+    ) %>%
+    group_by(dayType) %>%
+    #Summarize along all the interval varibles. 
+    #Do so by specifying what not to summarize
+    summarise_each(funs(mean(., na.rm=T)), -c(date, dayType)) %>%
+    #Narrow the dataset from the wide format we started with
+    gather(dayType) %>%
+    {
+        names(.) <- c('dayType', 'clockinterval', 'avgsteps')
+        .
+    } %>%
+    #Again, we add the sequentialIntervarible to be used as the x Axis
+    # to prevent the clock interval of the raw data from skewing the plot.
+    mutate(sequentialInterval = rep(seq(0, 1435, by=5), each=2 ))
+
+ggplot(dayTypeSummary, aes(x=sequentialInterval, y=avgsteps, group=dayType)) + 
+    geom_line() + facet_grid(dayType ~ .) + scale_x_continuous(
+        breaks=c(0, 250, 500, 750, 1000, 1250, 1500),
+        labels=c('0','4:10', '8:20', '12:30', '16:40', '20:50', '25:00')) +
+    labs(x='24Hr Time HH:MM', y='Mean steps per interval over all days.')
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-6-1.png) 
+
