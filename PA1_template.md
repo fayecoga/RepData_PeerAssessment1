@@ -3,6 +3,11 @@
 
 ## Loading and preprocessing the data
 
+The data were not downloaded but rather was forked from our instructor's Github account.
+The date of my fork was on January 16th. The SHA of Dr. Pengs last change set was 80edf39c3bb508fee88e3394542f967dd3fd3270
+
+
+
 ```r
 library(magrittr)
 library(dplyr)
@@ -45,12 +50,6 @@ activityDf <- read.csv('activity.csv', colClasses=c('integer', 'character', 'num
 } 
 ```
 
-## What is mean total number of steps taken per day?
-
-
-To do so we are going to create a new column which is simply the day of the year for a given date. The code will then group by day of year and sum the steps for each day.
-
-
 ```r
 stepsByDayDf <- activityDf %>%
     group_by(dayOfYear = yday(.$date)) %>%
@@ -60,6 +59,7 @@ stepsByDayDf <- activityDf %>%
         . #Return the dataset    
     }
 ```
+## What is mean total number of steps taken per day?
 
 Our mean and median steps per day is : 1.0766\times 10^{4} and 10765
 
@@ -120,20 +120,65 @@ p
 
 
 ## Imputing missing values
+The code below uses the widened version of our data from question 1.
+We first compute the meanStepsOverAllDays as we did in our first example.
+Next we find the row indices for all rows having 'NA' values and count
+the number of indices per our instructions to find the number of rows with 'NA'
+Once that is completed the code then makes a copy of our widened data set
+and summarize it in a form where we can plot the histogram.
 
+
+```r
+meanStepsOverAllDays =
+    sapply(dailyIntervals[,2:ncol(dailyIntervals)],
+           function(x) as.integer(mean(x, na.rm=T)))
+
+# Get the index of the rows that have NA values.
+# Note it is suffiecient to test the first interval column
+# as NA values do not occur for an interval unless
+# it occurs for all intervals of the day.
+naRows <- which(is.na(dailyIntervals[,2]))
+naRowCount <- length(naRows)
+# make a copy per the instructions.
+imputedDailyIntervals <- dailyIntervals;
+for( row in naRows)
+{
+    imputedDailyIntervals[row,2:289] <- meanStepsOverAllDays;
+}
+
+imputed <- gather(imputedDailyIntervals, date)
+names(imputed) <- c('date', 'interval', 'steps')
+imputed <- imputed %>% 
+    group_by(dayOfYear = yday(.$date)) %>%
+    summarise(totalSteps = sum(steps)) %>% {
+        meanStepsPerDay <<- round(mean(.$totalSteps, na.rm=T ),1)
+        medianStepsPerDay <<- median(.$totalSteps, na.rm=T)
+        . #Return the dataset
+    }
+```
+
+There are 8 rows of the widened dataset that have 'NA' values
+and 2304 rows in the narrow dataset that have 'NA' values.
+
+
+```r
+hist(imputed$totalSteps, breaks = "Sturges",
+     ylab='Frequency in Days', xlab='Step ranges',
+     main = 'Occurrences of days for given step range',
+     col='peachpuff', border='red')
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-7-1.png) 
 
 ## Are there differences in activity patterns between weekdays and weekends?
-This code transform the dailyIntervals data frame from the computations above
-by adding a new factor variable for the dayType of 'weekday' or 'weekend'.
-The subsequent group_by and summarise_each functions creates the mean steps
-per day for each day type of a given date.
 
-Finally, the code prepares the data to be plotted, by creating a more tidy ('narrow')
-data set using the gather function. The resulting structure allows for simple plotting
-by variable name. Again, as in the above plot, I'm going to add a new variable that
-represents the sequential 5 minute interval to use as the x axis in the plot,
-so as to prevent a skewed plot if we had chosen to use the modulo 60 interval variable 
-of the underlying raw data set.
+The data points a different pattern of walking on weekdays vs weekends. 
+It appears that during the week the subject under study does most of his/her
+walking in the early morning at approximately 8:35 and the remainder of the
+day drops off relative to that peak.  Also we see that the subject has a much
+larger peak walking activity during the week, but when we look at the weekend,
+our graph indicates that the number of steps is sustained at better rate through
+out the day.  
 
 
 
@@ -157,12 +202,12 @@ dayTypeSummary <- dailyIntervals %>%
     # to prevent the clock interval of the raw data from skewing the plot.
     mutate(sequentialInterval = rep(seq(0, 1435, by=5), each=2 ))
 
-ggplot(dayTypeSummary, aes(x=sequentialInterval, y=avgsteps, group=dayType)) + 
+ggplot(dayTypeSummary, aes(x=sequentialInterval, y=avgsteps, group=dayType, col=dayType )) + 
     geom_line() + facet_grid(dayType ~ .) + scale_x_continuous(
         breaks=c(0, 250, 500, 750, 1000, 1250, 1500),
         labels=c('0','4:10', '8:20', '12:30', '16:40', '20:50', '25:00')) +
-    labs(x='24Hr Time HH:MM', y='Mean steps per interval over all days.')
+    labs(x='24Hr Time HH:MM', y='Mean steps per interval over days of group.')
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-6-1.png) 
+![](PA1_template_files/figure-html/unnamed-chunk-8-1.png) 
 

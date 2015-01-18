@@ -49,5 +49,42 @@ p <- ggplot(intervalSummary, aes(x = sequentialperoid, y = meanStepsOverAllDays 
     labs(x='24Hr Time HH:MM', y='Mean steps per interval over all days.')
 p
 
-intervalSummary <- intervalSummary %>%
-    mutate(weekday = )
+imputedDataFrame <- dailyIntervals %>%
+{
+    z <- rbind( rbind(.[1,], .[1,]), rbind(., rbind(.[nrow(.),], .[nrow(.),])))
+    z[1:2,2:ncol(z)] <- 0
+    z[nrow(z)-1, 2:ncol(z)] <- 0
+    z[nrow(z), 2:ncol(z)] <- 0
+    row.names(z) <- NULL
+    z
+}
+
+for(interval in 2:ncol(imputedDataFrame)) {
+     for (ndx in 3:nrow(imputedDataFrame) - 2)) {
+         if(is.na(imputedDataFrame[ndx,interval]))
+         {
+             imputedDataFrame[ndx,interval] <-
+                 mean(
+                     imputedDataFrame[ndx-2,interval],
+                     imputedDataFrame[ndx-1,interval],
+                     0,
+                     imputedDataFrame[ndx+1,interval],
+                     imputedDataFrame[ndx+2,interval],
+                     na.rm=T)
+         }
+     }
+}
+
+dayTypeSummary <- dailyIntervals %>%
+    mutate(dayType = factor(
+        ifelse(wday(.$date) == 1 | wday(.$date) == 7,"weekend","weekday"))
+    ) %>%
+    group_by(dayType) %>%
+    summarise_each(funs(mean(., na.rm=T)), -c(date, dayType)) %>%
+    gather(dayType) %>%
+    {
+        names(.) <- c('dayType', 'clockinterval', 'avgsteps')
+        .
+    } %>%
+    mutate(sequentialInterval = rep(seq(0, 1435, by=5), each=2 ))
+ggplot(dayTypeSummary, aes(x=sequentialInterval, y=avgsteps, group=dayType)) + geom_line() + facet_grid(dayType ~ .)
