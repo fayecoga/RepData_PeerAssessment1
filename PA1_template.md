@@ -63,7 +63,11 @@ as a histogram, as well as computing the required variables for our first questi
 ```r
 stepsByDayDf <- activityDf %>%
     group_by(dayOfYear = yday(.$date)) %>%
-    summarise(totalSteps = sum(steps)) %>% {
+    summarise(totalSteps = sum(steps)) %>%
+    #pipe to lambda function that computes mean and median
+    {
+        # Use the special <<- operator to create the
+        # variable in the parent / global environment
         meanStepsPerDay <<- mean(.$totalSteps, na.rm=T )
         medianStepsPerDay <<- median(.$totalSteps, na.rm=T)
         . #Return the dataset    
@@ -119,15 +123,26 @@ the x axis according to clock time interval that is given in the raw data.
 
 
 ```r
+# We will want to use dailyIntervals later, so
+# don't play the pipe game until the next line.
 dailyIntervals <- activityDf %>% spread(interval, steps )
-intervalSummary <- data.frame(meanStepsOverAllDays =
+# Create a new data frame of 3 variables.
+intervalSummary <- data.frame(
+    #This variable uses sapply to compute the mean of
+    #each interval over all the days.
+    meanStepsOverAllDays =
     sapply(dailyIntervals[,2:ncol(dailyIntervals)],
            function(x) mean(x, na.rm=T)),
+    # interva variable for plotting
     sequentialperoid = seq(0, 1435, by=5),
+    # underlying raw interval variable that is modulo 60
     clockperiod = names(dailyIntervals[,2:ncol(dailyIntervals)]))
-
+# get the index for where the maximum value occurs
+# Note: the index may be different from what others compute
+# depending on wether they are working with wide or narrow data.
+# but the actual value should be the same for all students.
 maxIntervalStepsIndex <- which.max(intervalSummary$meanStepsOverAllDays)
-
+# Get the value for both clock and sequential interval.
 clockIntervalWithMaximumSteps <-
     intervalSummary$clockperiod[maxIntervalStepsIndex]
 sequential5MinIntervalWtihMaximumSteps <- 
@@ -148,6 +163,8 @@ the sequential 5 minute interval of the 24 hour period.
 p <- ggplot(intervalSummary, aes(x = sequentialperoid, y = meanStepsOverAllDays )) +
     geom_line(col='blue') +
     ggtitle("Mean Steps / Day") +
+    # The breaks are elements from the sequential interval
+    # and the labels are from the underlying clock interval modulo 60
     scale_x_continuous(
         breaks=c(0, 250, 500, 750, 1000, 1250, 1500),
         labels=c('0','4:10', '8:20', '12:30', '16:40', '20:50', '25:00')) +
@@ -186,7 +203,7 @@ for( row in naRows)
 {
     imputedDailyIntervals[row,2:289] <- meanStepsOverAllDays;
 }
-
+# Go back to a narrow / tidy data set with gather function.
 imputed <- gather(imputedDailyIntervals, date)
 names(imputed) <- c('date', 'interval', 'steps')
 imputed <- imputed %>% 
@@ -268,6 +285,8 @@ dayTypeSummary <- dailyIntervals %>%
 
 ggplot(dayTypeSummary, aes(x=sequentialInterval, y=avgsteps, group=dayType, col=dayType )) + 
     geom_line() + facet_grid(dayType ~ .) + scale_x_continuous(
+        # The breaks are elements from the sequential interval
+        # and the labels are from the underlying clock interval modulo 60
         breaks=c(0, 250, 500, 750, 1000, 1250, 1500),
         labels=c('0','4:10', '8:20', '12:30', '16:40', '20:50', '25:00')) +
     labs(x='24Hr Time HH:MM', y='Mean steps per interval over days of group.')
